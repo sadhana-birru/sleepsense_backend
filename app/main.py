@@ -14,7 +14,6 @@ import io
 from datetime import date, datetime, timedelta
 
 from .api import load_models, generate_report_logic
-from .api import load_models, generate_report_logic
 from typing import Optional
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -54,9 +53,9 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Load models when the application starts
-    print("Loading models...")
-    load_models()
+    # Models are lazy-loaded on first API call (not here) to avoid
+    # blocking Render's port detection during deployment.
+    print("SleepSense AI Backend starting (lazy-loading mode)...")
     yield
     print("Shutting down...")
 

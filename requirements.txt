@@ -2,14 +2,16 @@ fastapi
 uvicorn
 pydantic
 python-multipart
-torch
+# torch==2.2.2 --index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.2.2
 joblib
 pandas
 numpy
 librosa
 xgboost
-# tensorflow
 tensorflow-cpu==2.15.0
+
 transformers
 sqlalchemy
 passlib[bcrypt]
@@ -18,3 +20,4 @@ fitbit
 requests
 python-dotenv
 google-auth
+huggingface_hub

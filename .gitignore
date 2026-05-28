@@ -231,3 +231,12 @@ tmp/
 *.weights
 
 app/Models/*
+__pycache__/
+*.pyc
+*.ipynb
+*.csv
+*.h5
+*.pkl
+Models/
+colab_files/
+.env

@@ -16,3 +16,4 @@ pyjwt
 fitbit
 requests
 python-dotenv
+google-auth

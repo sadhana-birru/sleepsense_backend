@@ -67,16 +67,20 @@ class FitbitAPI:
             FitbitSleepData.date == target_date
         ).first()
         
+        # IST Helper
+        ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+        
         if existing_data:
             # Update existing record
             existing_data.sleep_data = sleep_data
-            existing_data.created_at = datetime.utcnow()
+            existing_data.created_at = ist_now
         else:
             # Create new record
             fitbit_sleep_data = FitbitSleepData(
                 user_id=user_id,
                 date=target_date,
-                sleep_data=sleep_data
+                sleep_data=sleep_data,
+                created_at=ist_now
             )
             db.add(fitbit_sleep_data)
         
@@ -92,8 +96,9 @@ class FitbitAPI:
         ).first()
         
         if cached_data:
+            ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
             # Check if data is fresh (less than 24 hours old)
-            if datetime.utcnow() - cached_data.created_at < timedelta(hours=24):
+            if ist_now - cached_data.created_at < timedelta(hours=24):
                 return cached_data.sleep_data
         
         return None

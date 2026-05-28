@@ -2,9 +2,10 @@ from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 import bcrypt
+import os
 
-# Secret key to encode the JWT token (In production, load this from environment variables!)
-SECRET_KEY = "sleepsense_super_secret_key"
+# Secret key to encode the JWT token
+SECRET_KEY = os.getenv("SECRET_KEY", "sleepsense_super_secret_key")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 7 days
 

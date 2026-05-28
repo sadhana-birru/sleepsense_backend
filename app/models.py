@@ -1,7 +1,10 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Boolean, Date, JSON
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timedelta
 from .database import Base
+
+def get_ist_time():
+    return datetime.utcnow() + timedelta(hours=5, minutes=30)
 
 class User(Base):
     __tablename__ = "users"
@@ -10,6 +13,7 @@ class User(Base):
     name = Column(String, index=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
+    age = Column(Integer)
     
     reports = relationship("Report", back_populates="owner")
     fitbit_account = relationship("FitbitAccount", back_populates="user", uselist=False)
@@ -20,7 +24,7 @@ class Report(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=get_ist_time)
     
     physical_score = Column(Float)
     mental_score = Column(Float)
@@ -40,7 +44,7 @@ class FitbitAccount(Base):
     access_token = Column(Text)
     refresh_token = Column(Text)
     token_expires_at = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=get_ist_time)
     
     user = relationship("User", back_populates="fitbit_account")
 
@@ -51,7 +55,7 @@ class FitbitSleepData(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     date = Column(Date)
     sleep_data = Column(JSON)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=get_ist_time)
     
     user = relationship("User", back_populates="fitbit_sleep_data")
     

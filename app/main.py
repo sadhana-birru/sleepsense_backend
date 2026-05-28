@@ -1,16 +1,24 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
+
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from contextlib import asynccontextmanager
 import tempfile
 import json
-import os
 import io
 from datetime import date, datetime, timedelta
 
 from .api import load_models, generate_report_logic
 from .api import load_models, generate_report_logic
-from .schemas import ReportRequest, UserCreate, UserLogin, Token
+from typing import Optional
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from .schemas import ReportRequest, UserCreate, UserLogin, Token, GoogleLoginRequest
 from . import models, database, auth
 from .fitbit_auth import FitbitOAuth
 from .fitbit_api import FitbitAPI
@@ -18,7 +26,12 @@ from .data_merger import DataMerger
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Depends
-from typing import Optional
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+if not GOOGLE_CLIENT_ID:
+    print("WARNING: GOOGLE_CLIENT_ID not found in environment variables!")
+else:
+    print(f"GOOGLE_CLIENT_ID loaded: {GOOGLE_CLIENT_ID[:5]}...{GOOGLE_CLIENT_ID[-5:]}")
 
 # Create the database tables
 models.Base.metadata.create_all(bind=database.engine)
@@ -69,13 +82,13 @@ def register_user(user: UserCreate, db: Session = Depends(database.get_db)):
         raise HTTPException(status_code=400, detail="Email already registered")
         
     hashed_password = auth.get_password_hash(user.password)
-    new_user = models.User(name=user.name, email=user.email, hashed_password=hashed_password)
+    new_user = models.User(name=user.name, email=user.email, hashed_password=hashed_password, age=user.age)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     
     access_token = auth.create_access_token(data={"sub": new_user.email})
-    return {"access_token": access_token, "token_type": "bearer", "name": new_user.name}
+    return {"access_token": access_token, "token_type": "bearer", "name": new_user.name, "email": new_user.email}
 
 @app.post("/api/login", response_model=Token)
 def login_user(user: UserLogin, db: Session = Depends(database.get_db)):
@@ -84,7 +97,54 @@ def login_user(user: UserLogin, db: Session = Depends(database.get_db)):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
         
     access_token = auth.create_access_token(data={"sub": db_user.email})
-    return {"access_token": access_token, "token_type": "bearer", "name": db_user.name}
+    return {"access_token": access_token, "token_type": "bearer", "name": db_user.name, "email": db_user.email}
+
+@app.post("/api/auth/google", response_model=Token)
+def google_auth(request: GoogleLoginRequest, db: Session = Depends(database.get_db)):
+    try:
+        # Verify the Google Token
+        idinfo = id_token.verify_oauth2_token(
+            request.credential, 
+            google_requests.Request(), 
+            GOOGLE_CLIENT_ID
+        )
+
+        # ID token is valid. Get user information from it.
+        email = idinfo['email']
+        name = idinfo.get('name', email.split('@')[0])
+        
+        # Check if user exists
+        db_user = db.query(models.User).filter(models.User.email == email).first()
+        
+        if not db_user:
+            # Create a new user if they don't exist
+            # For Google users, we might not have a password or age initially.
+            # We can set a dummy password or allow nullable password in models.
+            # For now, let's set a random password and a default age if required.
+            db_user = models.User(
+                name=name,
+                email=email,
+                hashed_password=auth.get_password_hash(os.urandom(24).hex()), # Random password
+                age=25 # Default age, user can update later
+            )
+            db.add(db_user)
+            db.commit()
+            db.refresh(db_user)
+            
+        # Create access token
+        access_token = auth.create_access_token(data={"sub": db_user.email})
+        return {
+            "access_token": access_token, 
+            "token_type": "bearer", 
+            "name": db_user.name, 
+            "email": db_user.email
+        }
+        
+    except ValueError:
+        # Invalid token
+        raise HTTPException(status_code=401, detail="Invalid Google token")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/history")
 def get_user_history(current_user: models.User = Depends(get_current_user), db: Session = Depends(database.get_db)):
@@ -129,12 +189,9 @@ async def analyze_data(
             user_input['sleep_efficiency'] = smartwatch.get('sleep_efficiency')
             
         text_message = parsed_data.get('text_message', "")
-
+        
         audio_path = None
-        # Save uploaded audio to a temporary file for librosa to process
         if audio:
-            # We use a temp file because librosa prefers a filename/path 
-            # (though it can read bytes, writing to disk avoids weird encoding issues in some setups)
             temp = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
             audio_content = await audio.read()
             temp.write(audio_content)
@@ -171,7 +228,6 @@ async def analyze_data(
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON in 'data' field.")
     except Exception as e:
-        # Make sure to clean up even if it errors out
         if 'audio_path' in locals() and audio_path and os.path.exists(audio_path):
             os.remove(audio_path)
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 from .models import FitbitSleepData
@@ -27,7 +27,7 @@ class DataMerger:
             'fitbit_available': bool(fitbit_data),
             'manual_entry': bool(user_data),
             'data_sources': DataMerger._get_field_sources(user_data, fitbit_data),
-            'merged_at': datetime.utcnow().isoformat()
+            'merged_at': (datetime.utcnow() + timedelta(hours=5, minutes=30)).isoformat()
         }
         
         return merged_data

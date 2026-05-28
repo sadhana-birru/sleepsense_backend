@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 class DemographicData(BaseModel):
-    age: int = Field(..., ge=18, le=100, description="Age of the user (18-100)")
+    age: int = Field(..., ge=15, le=120, description="Age of the user (15-120)")
     gender: int = Field(..., ge=0, le=2, description="0=Female, 1=Male, 2=Other")
     occupation: int = Field(..., ge=0, le=10, description="Occupation code (0-10)")
 
@@ -33,15 +33,20 @@ class UserCreate(BaseModel):
     name: str = Field(..., min_length=2)
     email: str = Field(..., min_length=5)
     password: str = Field(..., min_length=6)
+    age: int = Field(..., ge=15, le=120)
 
 class UserLogin(BaseModel):
     email: str
     password: str
 
+class GoogleLoginRequest(BaseModel):
+    credential: str
+
 class Token(BaseModel):
     access_token: str
     token_type: str
     name: Optional[str] = None
+    email: Optional[str] = None
 
 class ReportResponse(BaseModel):
     id: int

@@ -2,6 +2,11 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from dotenv import load_dotenv
 import os
 
+app = FastAPI()
+
+@app.get("/")
+def root():
+    return {"status": "SleepSense running"}
 # Load environment variables from .env file
 load_dotenv()
 

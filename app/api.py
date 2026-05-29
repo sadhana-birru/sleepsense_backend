@@ -43,7 +43,16 @@ def get_physical_models():
         _feature_names = joblib.load(os.path.join(MODELS_PATH, 'feature_list_v3.pkl'))
         _sleep_scaler = joblib.load(os.path.join(MODELS_PATH, 'sleep_scaler_v3.pkl'))
         _sleep_model = xgb.XGBClassifier()
+        
+        # Fix for XGBoost/Scikit-learn version mismatch causing TypeError
+        _sleep_model._estimator_type = "classifier"
+        
         _sleep_model.load_model(os.path.join(MODELS_PATH, 'sleep_model_v3.json'))
+        
+        # Inject missing scikit-learn wrapper attributes
+        import numpy as np
+        _sleep_model.n_classes_ = 2
+        
         print("[LAZY] Physical Model Loaded (XGBoost)")
     except Exception as e:
         print(f"[LAZY] Error loading Physical Model: {e}")

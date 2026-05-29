@@ -618,8 +618,156 @@ async def analyze_data(
 
 
 # -------------------------
-# FITBIT ROUTES (UNCHANGED)
+# HISTORY ROUTE
+# -------------------------
+@app.get("/api/history")
+def get_user_history(current_user: models.User = Depends(get_current_user), db: Session = Depends(database.get_db)):
+    reports = db.query(models.Report).filter(models.Report.user_id == current_user.id).order_by(models.Report.created_at.desc()).all()
+    
+    formatted_reports = []
+    for r in reports:
+         formatted_reports.append({
+             "id": r.id,
+             "created_at": r.created_at.isoformat(),
+             "physical_score": r.physical_score,
+             "mental_score": r.mental_score,
+             "vocal_score": r.vocal_score,
+             "overall_score": r.overall_score,
+             "status": r.status,
+             "advice": r.advice
+         })
+    return formatted_reports
+
+# -------------------------
+# FITBIT ROUTES
 # -------------------------
 @app.get("/api/auth/fitbit/connect")
 def connect_fitbit(current_user: models.User = Depends(get_current_user)):
     return {"auth_url": FitbitOAuth.get_authorization_url(current_user.id)}
+
+@app.get("/api/auth/fitbit/callback")
+def fitbit_callback(
+    code: str,
+    state: Optional[str] = None,
+    db: Session = Depends(database.get_db)
+):
+    """Handle Fitbit OAuth callback"""
+    if not state:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing state parameter (user session lost)"
+        )
+
+    try:
+        user_id = int(state) if state else None
+        
+        # Verify user exists
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )
+        
+        # Exchange authorization code for tokens
+        token_data = FitbitOAuth.exchange_code_for_tokens(code)
+        
+        # Save Fitbit account information
+        fitbit_account = FitbitOAuth.save_fitbit_account(
+            db, user_id, token_data
+        )
+
+        # Redirect to frontend with success message
+        return RedirectResponse(
+            url=f"http://localhost:5173?fitbit_connected=true&user_id={user_id}",
+            status_code=302
+        )
+        
+    except Exception as e:
+        # Redirect to frontend with error message
+        return RedirectResponse(
+            url=f"http://localhost:5173?fitbit_error={str(e)}",
+            status_code=302
+        )
+
+@app.post("/api/auth/fitbit/disconnect")
+def disconnect_fitbit(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """Disconnect Fitbit account"""
+    try:
+        FitbitOAuth.disconnect_fitbit(db, current_user.id)
+        return {"message": "Fitbit account disconnected successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/auth/fitbit/status")
+def fitbit_status(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """Check Fitbit connection status"""
+    is_connected = FitbitOAuth.is_fitbit_connected(db, current_user.id)
+    
+    if is_connected:
+        fitbit_account = db.query(models.FitbitAccount).filter(models.FitbitAccount.user_id == current_user.id).first()
+        available_dates = FitbitAPI.get_available_dates(db, current_user.id)
+        
+        return {
+            "connected": True,
+            "fitbit_user_id": fitbit_account.fitbit_user_id,
+            "connected_at": fitbit_account.created_at.isoformat(),
+            "available_dates": [d.isoformat() for d in available_dates]
+        }
+    else:
+        return {"connected": False}
+
+# Fitbit Data Routes
+@app.get("/api/fitbit/sleep/{target_date}")
+def get_fitbit_sleep_data(
+    target_date: date,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """Get Fitbit sleep data for a specific date"""
+    try:
+        sleep_summary = FitbitAPI.get_sleep_summary(db, current_user.id, target_date)
+        return sleep_summary
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/fitbit/sleep/range/{start_date}/{end_date}")
+def get_fitbit_sleep_range(
+    start_date: date,
+    end_date: date,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """Get Fitbit sleep data for a date range"""
+    try:
+        range_data = FitbitAPI.sync_sleep_data_range(db, current_user.id, start_date, end_date)
+        return range_data
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/fitbit/sync")
+def sync_fitbit_data(
+    target_date: Optional[date] = None,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """Manually sync Fitbit data"""
+    try:
+        if target_date:
+            # Sync specific date
+            sleep_data = FitbitAPI.sync_sleep_data(db, current_user.id, target_date)
+            return {"message": f"Synced data for {target_date.isoformat()}", "data": sleep_data}
+        else:
+            # Sync last 7 days by default
+            end_date = date.today()
+            start_date = end_date - timedelta(days=7)
+            range_data = FitbitAPI.sync_sleep_data_range(db, current_user.id, start_date, end_date)
+            return {"message": f"Synced data from {start_date.isoformat()} to {end_date.isoformat()}", "data": range_data}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

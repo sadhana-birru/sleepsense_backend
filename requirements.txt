@@ -10,7 +10,7 @@ librosa
 xgboost
 tensorflow-cpu==2.15.0
 
-transformers
+
 sqlalchemy
 passlib[bcrypt]
 pyjwt

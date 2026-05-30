@@ -420,9 +420,6 @@ def hybrid_fusion_logic(p_risk, t_risk, v_risk):
     return total_score, status, advice
 
 
-# -------------------------------------------------------------------
-# MAIN PIPELINE (UPDATED HF VERSION)
-# -------------------------------------------------------------------
 
 def generate_report_logic(user_input: dict, text_msg: str, audio_file_path: str = None):
 
@@ -462,24 +459,15 @@ def generate_report_logic(user_input: dict, text_msg: str, audio_file_path: str 
     ]
 
     # -----------------------------
-    # 2. PHYSICAL MODEL (HF BOOST MODEL)
+    # 2. PHYSICAL MODEL
     # -----------------------------
     try:
-        p_result = call_hf_model(
-            BOOST_MODEL,
-            {"inputs": p_features}
-        )
-
-        # fallback safe parsing
-        if isinstance(p_result, list) and len(p_result) > 0:
-            p_risk = float(p_result[0])
-        else:
-            p_risk = 0.5
-
+        p_result = call_hf_model(BOOST_MODEL, {"inputs": p_features})
+        p_risk = float(p_result[0]) if isinstance(p_result, list) else 0.5
     except:
         p_risk = 0.5
 
-    # heuristic safety boosts
+    # safety boosts
     if dur < 4:
         p_risk = max(p_risk, 0.95)
     elif dur < 5:
@@ -489,11 +477,9 @@ def generate_report_logic(user_input: dict, text_msg: str, audio_file_path: str 
 
     if wake > 4:
         p_risk = max(p_risk, 0.70)
-    if work > 12:
-        p_risk = max(p_risk, 0.65)
 
     # -----------------------------
-    # 3. MENTAL MODEL (HF BERT)
+    # 3. MENTAL MODEL (FIXED)
     # -----------------------------
     t_risk = 0.0
 
@@ -504,20 +490,10 @@ def generate_report_logic(user_input: dict, text_msg: str, audio_file_path: str 
                 {"inputs": text_msg}
             )
 
-            # Expected HF format: list of labels with scores
             if isinstance(m_result, list) and len(m_result) > 0:
                 scores = m_result[0]
-
-                normal_score = 0.0
-
-                for item in scores:
-                    label = item.get("label", "").lower()
-                    score = item.get("score", 0)
-
-                    if "normal" in label or "label_2" in label:
-                        normal_score = score
-
-                t_risk = 1.0 - normal_score
+                best = max(scores, key=lambda x: x["score"])
+                t_risk = best["score"]
             else:
                 t_risk = 0.5
 
@@ -525,20 +501,12 @@ def generate_report_logic(user_input: dict, text_msg: str, audio_file_path: str 
             print("Mental model error:", e)
             t_risk = 0.5
 
-        # keyword boost
-        text_lower = text_msg.lower()
-
-        if any(w in text_lower for w in ["suicide", "kill", "hopeless", "end"]):
-            t_risk = max(t_risk, 0.85)
-        elif any(w in text_lower for w in ["sad", "depressed", "help"]):
-            t_risk = max(t_risk, 0.65)
-
     # -----------------------------
-    # 4. VOICE MODEL (HF CNN)
+    # 4. VOICE MODEL (FIXED)
     # -----------------------------
     v_risk = 0.0
 
-    if audio_file_path:
+    if audio_file_path and str(audio_file_path).lower() not in ["none", "", "null"]:
         try:
             v_features = get_voice_features(audio_file_path)
 
@@ -547,19 +515,16 @@ def generate_report_logic(user_input: dict, text_msg: str, audio_file_path: str 
                 {"inputs": v_features}
             )
 
-            if isinstance(v_result, list):
+            if isinstance(v_result, list) and len(v_result) > 0:
                 v_probs = v_result[0]
-                v_risk = sum(v_probs[3:7])  # sad, angry, fear, disgust
-            else:
-                v_risk = 0.5
+                v_risk = sum(v_probs[3:7]) if isinstance(v_probs, list) else 0.0
 
         except Exception as e:
             print("Voice model error:", e)
-            traceback.print_exc()
             v_risk = 0.0
 
     # -----------------------------
-    # 5. FINAL FUSION
+    # 5. FUSION
     # -----------------------------
     final_score, status, advice = hybrid_fusion_logic(p_risk, t_risk, v_risk)
 

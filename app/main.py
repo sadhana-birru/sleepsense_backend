@@ -623,6 +623,74 @@ def google_auth(request: GoogleLoginRequest, db: Session = Depends(database.get_
 # -------------------------
 # ANALYZE (MAIN AI ENDPOINT)
 # -------------------------
+# @app.post("/api/analyze")
+# async def analyze_data(
+#     data: str = Form(...),
+#     audio: UploadFile = File(None),
+#     current_user: models.User = Depends(get_current_user),
+#     db: Session = Depends(database.get_db)
+# ):
+#     try:
+#         parsed_data = json.loads(data)
+
+#         merged_data = DataMerger.get_merged_data_for_analysis(
+#             db, current_user.id, parsed_data
+#         )
+
+#         user_input = {
+#             **parsed_data.get("demographics", {}),
+#             **merged_data
+#         }
+
+#         smartwatch = parsed_data.get("smartwatch", {})
+#         if smartwatch.get("has_smartwatch"):
+#             user_input["deep_sleep_percent"] = smartwatch.get("deep_sleep_percent")
+#             user_input["rem_sleep_percent"] = smartwatch.get("rem_sleep_percent")
+#             user_input["sleep_efficiency"] = smartwatch.get("sleep_efficiency")
+
+#         text_message = parsed_data.get("text_message", "")
+
+#         audio_path = None
+#         if audio:
+#             temp = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+#             temp.write(await audio.read())
+#             temp.close()
+#             audio_path = temp.name
+
+#         # CALL YOUR HF-BASED PIPELINE
+#         report = generate_report_logic(
+#             user_input,
+#             text_message,
+#             audio_path
+#         )
+
+#         # SAVE REPORT TO DATABASE
+#         new_report = models.Report(
+#             user_id=current_user.id,
+#             physical_score=report["physical_score"],
+#             mental_score=report["mental_score"],
+#             vocal_score=report["vocal_score"],
+#             overall_score=report["overall_score"],
+#             status=report["status"],
+#             advice=report["advice"]
+#         )
+
+#         db.add(new_report)
+#         db.commit()
+#         db.refresh(new_report)
+
+#         if audio_path and os.path.exists(audio_path):
+#             os.remove(audio_path)
+
+#         return report
+
+#     except Exception as e:
+#         if audio_path and os.path.exists(audio_path):
+#             os.remove(audio_path)
+
+#         raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/analyze")
 async def analyze_data(
     data: str = Form(...),
@@ -630,6 +698,8 @@ async def analyze_data(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(database.get_db)
 ):
+    audio_path = None  # ✅ FIX: always define early
+
     try:
         parsed_data = json.loads(data)
 
@@ -648,23 +718,38 @@ async def analyze_data(
             user_input["rem_sleep_percent"] = smartwatch.get("rem_sleep_percent")
             user_input["sleep_efficiency"] = smartwatch.get("sleep_efficiency")
 
+        # ✅ FIX: strict text cleanup
         text_message = parsed_data.get("text_message", "")
+        if not text_message or not text_message.strip():
+            text_message = ""
 
-        audio_path = None
+        # 🔥 DEBUG (IMPORTANT - KEEP TEMPORARILY)
+        print("TEXT MESSAGE:", text_message)
+
+        # -------------------------
+        # AUDIO HANDLING (FIXED SAFETY)
+        # -------------------------
         if audio:
             temp = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
             temp.write(await audio.read())
             temp.close()
             audio_path = temp.name
 
-        # CALL YOUR HF-BASED PIPELINE
+        print("AUDIO PATH:", audio_path)
+        print("USER INPUT KEYS:", list(user_input.keys()))
+
+        # -------------------------
+        # ML PIPELINE CALL
+        # -------------------------
         report = generate_report_logic(
             user_input,
             text_message,
             audio_path
         )
 
-        # SAVE REPORT TO DATABASE
+        # -------------------------
+        # SAVE REPORT
+        # -------------------------
         new_report = models.Report(
             user_id=current_user.id,
             physical_score=report["physical_score"],
@@ -679,12 +764,17 @@ async def analyze_data(
         db.commit()
         db.refresh(new_report)
 
+        # -------------------------
+        # CLEANUP
+        # -------------------------
         if audio_path and os.path.exists(audio_path):
             os.remove(audio_path)
 
         return report
 
     except Exception as e:
+        print("ANALYZE ERROR:", str(e))  # 🔥 IMPORTANT DEBUG
+
         if audio_path and os.path.exists(audio_path):
             os.remove(audio_path)
 
@@ -722,46 +812,164 @@ def get_user_history(
 # -------------------------
 @app.get("/api/auth/fitbit/callback")
 def fitbit_callback(
-    code: str,
+    code: str = None,
     state: Optional[str] = None,
+    error: Optional[str] = None,
     db: Session = Depends(database.get_db)
 ):
     try:
-        user_id = int(state) if state else None
+        # -------------------------
+        # HANDLE FITBIT ERROR
+        # -------------------------
+        if error:
+            return RedirectResponse(
+                url=f"{FRONTEND_URL}?fitbit_error={error}",
+                status_code=302
+            )
 
+        # -------------------------
+        # CHECK CODE
+        # -------------------------
+        if not code:
+            return RedirectResponse(
+                url=f"{FRONTEND_URL}?fitbit_error=missing_code",
+                status_code=302
+            )
+
+        # -------------------------
+        # SAFE STATE PARSING (IMPORTANT FIX)
+        # -------------------------
+        user_id = None
+        if state and state.strip().isdigit():
+            user_id = int(state.strip())
+
+        if not user_id:
+            return RedirectResponse(
+                url=f"{FRONTEND_URL}?fitbit_error=invalid_state",
+                status_code=302
+            )
+
+        # -------------------------
+        # CHECK USER
+        # -------------------------
         user = db.query(models.User).filter(models.User.id == user_id).first()
         if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+            return RedirectResponse(
+                url=f"{FRONTEND_URL}?fitbit_error=user_not_found",
+                status_code=302
+            )
 
+        # -------------------------
+        # TOKEN EXCHANGE
+        # -------------------------
         token_data = FitbitOAuth.exchange_code_for_tokens(code)
 
+        if not token_data:
+            return RedirectResponse(
+                url=f"{FRONTEND_URL}?fitbit_error=token_failed",
+                status_code=302
+            )
+
+        # SAVE TOKEN
         FitbitOAuth.save_fitbit_account(db, user_id, token_data)
 
-        frontend = FRONTEND_URL or "http://localhost:5173"
         return RedirectResponse(
-            url=f"{frontend}?fitbit_connected=true&user_id={user_id}",
+            url=f"{FRONTEND_URL}?fitbit_connected=true",
             status_code=302
         )
 
     except Exception as e:
+        print("FITBIT CALLBACK ERROR:", str(e))
         return RedirectResponse(
-            url=f"{FRONTEND_URL}?fitbit_error={str(e)}",
+            url=f"{FRONTEND_URL}?fitbit_error=server_error",
             status_code=302
         )
+
 # -------------------------
-# FITBIT STATUS
+# ADDED FITBIT ROUTES
 # -------------------------
+@app.get("/api/auth/fitbit/connect")
+def connect_fitbit(current_user: models.User = Depends(get_current_user)):
+    return {"auth_url": FitbitOAuth.get_authorization_url(current_user.id)}
+
+@app.post("/api/auth/fitbit/disconnect")
+def disconnect_fitbit(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """Disconnect Fitbit account"""
+    try:
+        FitbitOAuth.disconnect_fitbit(db, current_user.id)
+        return {"message": "Fitbit account disconnected successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.get("/api/auth/fitbit/status")
 def fitbit_status(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(database.get_db)
 ):
-    fitbit_account = (
-        db.query(models.FitbitAccount)
-        .filter(models.FitbitAccount.user_id == current_user.id)
-        .first()
-    )
+    """Check Fitbit connection status"""
+    is_connected = FitbitOAuth.is_fitbit_connected(db, current_user.id)
+    
+    if is_connected:
+        fitbit_account = db.query(models.FitbitAccount).filter(models.FitbitAccount.user_id == current_user.id).first()
+        available_dates = FitbitAPI.get_available_dates(db, current_user.id)
+        
+        return {
+            "connected": True,
+            "fitbit_user_id": fitbit_account.fitbit_user_id,
+            "connected_at": fitbit_account.created_at.isoformat(),
+            "available_dates": [d.isoformat() for d in available_dates]
+        }
+    else:
+        return {"connected": False}
 
-    return {
-        "connected": fitbit_account is not None
-    }
+# Fitbit Data Routes
+@app.get("/api/fitbit/sleep/{target_date}")
+def get_fitbit_sleep_data(
+    target_date: date,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """Get Fitbit sleep data for a specific date"""
+    try:
+        sleep_summary = FitbitAPI.get_sleep_summary(db, current_user.id, target_date)
+        return sleep_summary
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/fitbit/sleep/range/{start_date}/{end_date}")
+def get_fitbit_sleep_range(
+    start_date: date,
+    end_date: date,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """Get Fitbit sleep data for a date range"""
+    try:
+        range_data = FitbitAPI.sync_sleep_data_range(db, current_user.id, start_date, end_date)
+        return range_data
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/fitbit/sync")
+def sync_fitbit_data(
+    target_date: Optional[date] = None,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """Manually sync Fitbit data"""
+    try:
+        if target_date:
+            # Sync specific date
+            sleep_data = FitbitAPI.sync_sleep_data(db, current_user.id, target_date)
+            return {"message": f"Synced data for {target_date.isoformat()}", "data": sleep_data}
+        else:
+            # Sync last 7 days by default
+            end_date = date.today()
+            start_date = end_date - timedelta(days=7)
+            range_data = FitbitAPI.sync_sleep_data_range(db, current_user.id, start_date, end_date)
+            return {"message": f"Synced data from {start_date.isoformat()} to {end_date.isoformat()}", "data": range_data}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

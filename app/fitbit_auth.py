@@ -29,7 +29,9 @@ class FitbitOAuth:
             "state": str(user_id),  # Use user_id as state parameter
         }
         
-        query_string = "&".join([f"{key}={value}" for key, value in params.items()])
+        from urllib.parse import urlencode
+
+        query_string = urlencode(params)
         return f"{FITBIT_AUTH_URL}?{query_string}"
     
     @staticmethod

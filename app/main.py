@@ -620,6 +620,9 @@ def google_auth(request: GoogleLoginRequest, db: Session = Depends(database.get_
 # -------------------------
 # ANALYZE (MAIN AI ENDPOINT)
 # -------------------------
+# -------------------------
+# ANALYZE (MAIN AI ENDPOINT)
+# -------------------------
 @app.post("/api/analyze")
 async def analyze_data(
     data: str = Form(...),
@@ -655,7 +658,26 @@ async def analyze_data(
             audio_path = temp.name
 
         # CALL YOUR HF-BASED PIPELINE
-        report = generate_report_logic(user_input, text_message, audio_path)
+        report = generate_report_logic(
+            user_input,
+            text_message,
+            audio_path
+        )
+
+        # SAVE REPORT TO DATABASE
+        new_report = models.Report(
+            user_id=current_user.id,
+            physical_score=report["physical_score"],
+            mental_score=report["mental_score"],
+            vocal_score=report["vocal_score"],
+            overall_score=report["overall_score"],
+            status=report["status"],
+            advice=report["advice"]
+        )
+
+        db.add(new_report)
+        db.commit()
+        db.refresh(new_report)
 
         if audio_path and os.path.exists(audio_path):
             os.remove(audio_path)
@@ -663,8 +685,10 @@ async def analyze_data(
         return report
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        if audio_path and os.path.exists(audio_path):
+            os.remove(audio_path)
 
+        raise HTTPException(status_code=500, detail=str(e))
 
 # -------------------------
 # HISTORY

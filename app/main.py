@@ -748,3 +748,20 @@ def fitbit_callback(
             url=f"{FRONTEND_URL}?fitbit_error={str(e)}",
             status_code=302
         )
+# -------------------------
+# FITBIT STATUS
+# -------------------------
+@app.get("/api/auth/fitbit/status")
+def fitbit_status(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    fitbit_account = (
+        db.query(models.FitbitAccount)
+        .filter(models.FitbitAccount.user_id == current_user.id)
+        .first()
+    )
+
+    return {
+        "connected": fitbit_account is not None
+    }

@@ -557,3 +557,64 @@ docker stop myredis
 docker rm myredis
 docker images
 docker rmi yourusername/redis1
+---------------------------------------------------------------------------------------
+# 1. CONNECT TO EC2 (LOCAL TERMINAL)
+cd ~/Documents/AWS
+chmod 400 AWS.pem
+ssh -i AWS.pem ubuntu@YOUR_PUBLIC_IP
+
+# 2. UPDATE UBUNTU
+sudo apt update
+
+# 3. INSTALL DOCKER
+sudo apt install docker.io -y
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# 4. INSTALL REQUIRED SOFTWARE
+sudo apt install git nano maven -y
+
+# 5. CHECK VERSIONS
+docker --version
+git --version
+mvn --version
+
+# 6. CLONE GITHUB PROJECT
+git clone https://github.com/YOUR_USERNAME/maven-web-java.git
+
+# 7. NAVIGATE INTO PROJECT
+cd maven-web-java
+ls
+
+# 8. BUILD MAVEN PROJECT
+mvn clean package
+ls target
+
+# 9. CREATE DOCKERFILE
+nano Dockerfile
+
+# PASTE DOCKERFILE CONTENT:
+# FROM tomcat:9.0-jdk17-temurin
+# COPY target/*.war /usr/local/tomcat/webapps/ROOT.war
+# EXPOSE 8080
+# CMD ["catalina.sh", "run"]
+
+# SAVE: CTRL+O → ENTER → CTRL+X
+
+# 10. BUILD DOCKER IMAGE
+sudo docker build -t app-demo .
+
+# 11. CHECK DOCKER IMAGES
+sudo docker images
+
+# 12. RUN DOCKER CONTAINER
+sudo docker run -d --name app-demo -p 6060:8080 app-demo
+
+# 13. CHECK RUNNING CONTAINER
+sudo docker ps
+
+# 14. CHECK LOGS
+sudo docker logs app-demo
+
+# 15. ACCESS APPLICATION IN BROWSER
+# http://YOUR_PUBLIC_IP:6060

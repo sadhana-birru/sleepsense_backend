@@ -384,11 +384,8 @@ which mvn
 # STEP 1: CREATE PROJECT FOLDER
 mkdir compose-lab
 cd compose-lab
-
-# STEP 2: CREATE DOCKER COMPOSE FILE
 notepad docker-compose.yml
 
-# Paste the following content:
 # services:
 #   web:
 #     image: nginx:latest
@@ -401,23 +398,10 @@ notepad docker-compose.yml
 #       POSTGRES_PASSWORD: demo
 #       POSTGRES_DB: demo_db
 
-# Save: Ctrl+O -> Enter -> Ctrl+X
-
-# STEP 3: START CONTAINERS
 docker compose up -d
-
-# STEP 4: CHECK CONTAINERS
 docker compose ps
-
-# STEP 5: OPEN NGINX IN BROWSER
 # http://localhost:8081
 
-
-# ==========================================
-# TASK 2: ADD REDIS SERVICE
-# ==========================================
-
-# STEP 6: EDIT COMPOSE FILE
 nano docker-compose.yml
 
 # Final content for Task 2:
@@ -452,7 +436,7 @@ zip -r compose-lab.zip compose-lab
 # STEP 11: VERIFY ZIP
 ls -lh compose-lab.zip
 
-# STEP 12: TRANSFER ZIP TO ANOTHER MACHINE
+
 # Use USB or file transfer.
 
 # STEP 13: EXTRACT ON OTHER MACHINE
@@ -501,39 +485,34 @@ nano docker-compose.yml
 # volumes:
 #   db-data:
 
-# STEP 19: START SERVICES
 docker compose up -d
 
-# STEP 20: CHECK SERVICES
+
 docker compose ps
 
-# STEP 21: CONNECT TO POSTGRESQL
 docker compose exec db psql -U demo -d demo_db
 
-# STEP 22: CREATE TABLE AND INSERT DATA
-# Run inside PostgreSQL:
+
+
 # CREATE TABLE students(id INT, name VARCHAR(50));
 # INSERT INTO students VALUES(1,'Ram');
 # SELECT * FROM students;
 # \q
 
-# STEP 23: STOP AND REMOVE CONTAINERS
+
 docker compose down
 
-# STEP 24: START AGAIN
+
 docker compose up -d
 
-# STEP 25: VERIFY PERSISTENT DATA
 docker compose exec db psql -U demo -d demo_db
 
-# Run inside PostgreSQL:
 # SELECT * FROM students;
 # \q
 
-# STEP 26: CREATE FLASK APP
+
 nano app.py
 
-# Paste:
 # from flask import Flask
 #
 # app = Flask(__name__)
@@ -547,21 +526,17 @@ nano app.py
 
 # Save: Ctrl+O -> Enter -> Ctrl+X
 
-
-# STEP 27: CREATE DOCKERFILE
 nano Dockerfile
 
-# Paste:
+
 # FROM python:3.10-slim
 # WORKDIR /app
 # COPY app.py /app/
 # RUN pip install flask
 # CMD ["python", "app.py"]
 
-# Save: Ctrl+O -> Enter -> Ctrl+X
 
 
-# STEP 28: UPDATE COMPOSE FILE
 nano docker-compose.yml
 
 # Final content for Task 5:
@@ -579,34 +554,23 @@ nano docker-compose.yml
 #       POSTGRES_PASSWORD: demo
 #       POSTGRES_DB: demo_db
 
-# STEP 29: BUILD AND START
-docker compose up --build -d
 
-# STEP 30: CHECK CONTAINERS
+docker compose up --build -d
 docker compose ps
 
-# STEP 31: OPEN FLASK IN BROWSER
 # http://localhost:5000
 
 # Expected:
 # Hello from Flask + Docker!
 
-
-# STEP 32: MODIFY FLASK MESSAGE
 nano app.py
 
-# Change:
+
 # return "Hello from Flask + Docker!"
 # To:
 # return "Hello Docker Compose!"
 
-# Save: Ctrl+O -> Enter -> Ctrl+X
-
-
-# STEP 33: REBUILD APPLICATION
 docker compose up --build -d
-
-# STEP 34: VERIFY UPDATED MESSAGE
 # http://localhost:5000
 
 # Expected:

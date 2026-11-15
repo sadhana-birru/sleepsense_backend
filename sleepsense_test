@@ -1,4 +1,4 @@
-
+sh->bat
 
 # 4. Start Minikube
 minikube start --driver=docker

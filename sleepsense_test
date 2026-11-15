@@ -1,0 +1,663 @@
+
+
+# 4. Start Minikube
+minikube start --driver=docker
+minikube status
+kubectl get nodes
+kubectl get all
+
+# 5. Create Nginx Deployment
+kubectl create deployment mynginx --image=nginx
+kubectl get deployments
+kubectl get pods
+kubectl describe pods
+
+# 6. Expose Nginx Service
+kubectl expose deployment mynginx --type=NodePort --port=80 --target-port=80
+kubectl get services
+kubectl describe service mynginx
+
+# 7. Access Nginx
+kubectl port-forward svc/mynginx 8084:80
+# Open browser: http://localhost:8084
+# Press Ctrl+C to stop port forwarding
+
+# 8. Scale Nginx to 4 Pods
+kubectl scale deployment mynginx --replicas=4
+kubectl get pods
+kubectl get deployments
+kubectl get replicasets
+
+# 9. Open Kubernetes Dashboard
+minikube dashboard
+
+# 10. Stop Minikube
+minikube stop
+
+# 11. Download Nagios Image
+docker pull jasonrivers/nagios:latest
+docker images
+
+# 12. Run Nagios
+docker run --name nagiosdemo -p 8888:80 jasonrivers/nagios:latest
+# Open browser: http://localhost:8888
+# Username: nagiosadmin
+# Password: nagios
+# Press Ctrl+C after finishing
+
+# 13. Stop and Remove Nagios
+docker stop nagiosdemo
+docker rm nagiosdemo
+docker ps -a
+
+# 14. Remove Nagios Image (Optional)
+docker rmi jasonrivers/nagios:latest
+
+# 15. Delete Minikube Cluster (Optional)
+minikube delete
+
+
+
+
+---------------------------------------------------------------------------------------
+
+
+# WEEK 11 LAB – JENKINS CI/CD
+## GitHub Webhooks and Email Notification
+
+### PART A: Jenkins CI Using GitHub Webhook
+
+**Step 2: Configure Jenkins Job**
+1. Open Jenkins Dashboard.
+2. Select your existing job.
+3. Click Configure.
+4. Find Build Triggers.
+5. Enable:
+   `GitHub hook trigger for GITScm polling`
+6. Click Save.
+
+   ngrok http 8080
+   ```
+7. Copy the HTTPS forwarding URL.
+8. Keep ngrok running.
+
+**Step 4: Configure GitHub Webhook**
+1. Open your GitHub repository.
+2. Go to Settings → Webhooks.
+3. Click Add webhook.
+4. Enter Payload URL:
+   `https://YOUR-NGROK-URL/github-webhook/`
+5. Content type: `application/json`
+6. Select Just the push event.
+7. Enable Active.
+8. Click Add webhook.
+
+**Step 5: Test GitHub Webhook**
+1. Open your local GitHub repository in Terminal.
+2. Make a change:
+   ```bash
+   echo "Testing Jenkins Webhook" >> README.md
+   ```
+3. Add files:
+   ```bash
+   git add .
+   ```
+4. Commit:
+   ```bash
+   git commit -m "Testing GitHub webhook"
+   ```
+5. Push:
+   ```bash
+   git push origin main
+   ```
+6. Open Jenkins Dashboard.
+7. Check Build History.
+8. Verify automatic build starts.
+9. Check Console Output for SUCCESS.
+
+---
+
+### PART B: Jenkins Email Notification Using Gmail
+
+**Step 6: Create Gmail App Password**
+1. Open https://myaccount.google.com/security
+2. Enable 2-Step Verification.
+3. Open https://myaccount.google.com/apppasswords
+4. Create App Password named `Jenkins-Demo`.
+5. Copy the 16-character App Password.
+6. Keep it secure.
+
+**Step 7: Install Email Extension Plugin**
+1. Open Jenkins Dashboard.
+2. Click Manage Jenkins → Plugins.
+3. Open Available Plugins.
+4. Search Email Extension Plugin.
+5. Select it.
+6. Click Install.
+7. Restart Jenkins if required.
+
+**Step 8: Configure E-mail Notification**
+1. Open Manage Jenkins → System.
+2. Find E-mail Notification.
+3. Enter:
+
+   - SMTP server: `smtp.gmail.com`
+   - Default user e-mail suffix: Leave empty
+   - Use SMTP Authentication: Enable
+   - User Name: Your Gmail address
+   - Password: Gmail App Password
+   - Use SSL: Enable
+   - Use TLS: Disable
+   - SMTP Port: `465`
+   - Reply-To Address: Your Gmail address
+   - Charset: `UTF-8`
+
+4. Enable Test configuration by sending test e-mail.
+5. Enter receiving Gmail address.
+6. Click Test configuration.
+7. Verify email received.
+8. Click Save.
+
+**Step 9: Configure Extended E-mail Notification**
+1. In Manage Jenkins → System.
+2. Find Extended E-mail Notification.
+3. Configure:
+
+   - SMTP Server: `smtp.gmail.com`
+   - SMTP Port: `465`
+   - Use SSL: Enable
+   - Credentials: Gmail ID + App Password
+   - Default Content Type: `text/html`
+
+4. Add Gmail credentials if required.
+5. Click Save.
+
+**Step 10: Configure Job Email Notifications**
+1. Open Jenkins Dashboard.
+2. Select your job.
+3. Click Configure.
+4. Find Post-build Actions.
+5. Click Add post-build action.
+6. Select Editable Email Notification.
+7. Configure:
+
+   - Project Recipient List: Receiving Gmail address
+   - Content Type: Default
+   - Default Subject: `$PROJECT_NAME - Build $BUILD_NUMBER - $BUILD_STATUS`
+   - Default Content: Build status and console output
+
+8. Under Triggers, add:
+   - Success
+   - Failure
+9. Click Save.
+
+**Step 11: Test Email Notifications**
+
+Success Test:
+1. Push valid code to GitHub.
+2. Jenkins automatically builds.
+3. Verify SUCCESS.
+4. Check Gmail for success notification.
+
+Failure Test:
+1. Temporarily make build fail.
+2. Run Jenkins job.
+3. Verify FAILURE.
+4. Check Gmail for failure notification.
+5. Restore original job configuration.
+
+----------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ==========================================
+# WEEK 10: JENKINS PIPELINE CREATION
+# ==========================================
+# ==========================================
+# STEP 2: CREATE HELLO PIPELINE
+# ==========================================
+
+# Jenkins Dashboard -> New Item
+# Name: Week10-Hello-Pipeline
+# Select: Pipeline -> OK
+# Description: Week 10 Jenkins Pipeline Creation using Script
+# Pipeline -> Definition: Pipeline script
+
+# Paste this pipeline script:
+
+pipeline {
+    agent any
+
+    stages {
+        stage('Hello 1') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+
+        stage('Hello3') {
+            steps {
+                echo 'Hello 3'
+            }
+        }
+    }
+}
+
+# Click Apply -> Save -> Build Now
+# Open Build Number -> Console Output
+# Verify: Finished: SUCCESS
+
+
+# ==========================================
+# STEP 3: CONFIGURE BUILD TRIGGERS
+# ==========================================
+
+# Open Week10-Hello-Pipeline -> Configure
+# Scroll to Build Triggers
+# Check: Build periodically
+# Schedule:
+
+H/5 * * * *
+
+# Click Apply -> Save
+# Wait approximately 5 minutes
+# Verify automatic build in Build History
+
+
+# ==========================================
+# STEP 4: CONFIGURE MAVEN IN JENKINS
+# ==========================================
+
+# Manage Jenkins -> Tools -> Maven installations
+# Click Add Maven
+# Name:
+
+MAVEN_HOME
+
+# Enable Install automatically if available
+# Select Maven version
+# Click Apply -> Save
+
+
+# ==========================================
+# STEP 5: CREATE GITHUB MAVEN PIPELINE
+# ==========================================
+
+# Jenkins Dashboard -> New Item
+# Name: Week10-Maven-GitHub-Pipeline
+# Select Pipeline -> OK
+# Description: Jenkins Pipeline for GitHub Maven Project
+# Pipeline -> Definition: Pipeline script
+
+# Paste this script:
+
+pipeline {
+    agent any
+
+    tools {
+        maven 'MAVEN_HOME'
+    }
+
+    stages {
+        stage('git repo & clean') {
+            steps {
+                git branch: 'main',
+                    url: 'YOUR_GITHUB_REPOSITORY_URL'
+
+                sh 'mvn clean'
+            }
+        }
+
+        stage('install') {
+            steps {
+                sh 'mvn install'
+            }
+        }
+
+        stage('test') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+
+        stage('package') {
+            steps {
+                sh 'mvn package'
+            }
+        }
+    }
+}
+
+# Replace YOUR_GITHUB_REPOSITORY_URL with your actual GitHub URL
+# Change main to master if your repository uses master
+# Click Apply -> Save -> Build Now
+
+
+# ==========================================
+# STEP 6: EVALUATE PIPELINE
+# ==========================================
+
+# Open Week10-Maven-GitHub-Pipeline
+# Click Build Number -> Console Output
+# Verify these stages:
+
+
+# Expected result:
+
+BUILD SUCCESS
+Finished: SUCCESS
+
+
+# ==========================================
+# STEP 7: CHECK JENKINS AND MAVEN
+# ==========================================
+
+sudo systemctl status jenkins
+java -version
+mvn -version
+which mvn
+
+
+# WEEK 10 LAB COMPLETED
+# ==========================================
+
+
+
+----------------------------------------------------------------------------------
+
+
+
+# ==========================================
+# WEEK 8 LAB: DOCKER COMPOSE
+# ==========================================
+
+# STEP 1: CREATE PROJECT FOLDER
+mkdir compose-lab
+cd compose-lab
+
+# STEP 2: CREATE DOCKER COMPOSE FILE
+notepad docker-compose.yml
+
+# Paste the following content:
+# services:
+#   web:
+#     image: nginx:latest
+#     ports:
+#       - "8081:80"
+#   db:
+#     image: postgres:15
+#     environment:
+#       POSTGRES_USER: demo
+#       POSTGRES_PASSWORD: demo
+#       POSTGRES_DB: demo_db
+
+# Save: Ctrl+O -> Enter -> Ctrl+X
+
+# STEP 3: START CONTAINERS
+docker compose up -d
+
+# STEP 4: CHECK CONTAINERS
+docker compose ps
+
+# STEP 5: OPEN NGINX IN BROWSER
+# http://localhost:8081
+
+
+# ==========================================
+# TASK 2: ADD REDIS SERVICE
+# ==========================================
+
+# STEP 6: EDIT COMPOSE FILE
+nano docker-compose.yml
+
+# Final content for Task 2:
+# services:
+#   web:
+#     image: nginx:latest
+#     ports:
+#       - "8081:80"
+#     depends_on:
+#       - redis
+#   db:
+#     image: postgres:15
+#     environment:
+#       POSTGRES_USER: demo
+#       POSTGRES_PASSWORD: demo
+#       POSTGRES_DB: demo_db
+#   redis:
+#     image: redis:alpine
+
+# STEP 7: START UPDATED SERVICES
+docker compose up -d
+
+# STEP 8: CHECK ALL SERVICES
+docker compose ps
+
+# STEP 9: GO TO DESKTOP
+cd ~/Desktop
+
+# STEP 10: CREATE ZIP FILE
+zip -r compose-lab.zip compose-lab
+
+# STEP 11: VERIFY ZIP
+ls -lh compose-lab.zip
+
+# STEP 12: TRANSFER ZIP TO ANOTHER MACHINE
+# Use USB or file transfer.
+
+# STEP 13: EXTRACT ON OTHER MACHINE
+unzip compose-lab.zip
+
+# STEP 14: ENTER PROJECT FOLDER
+cd compose-lab
+
+# STEP 15: START SERVICES ON OTHER MACHINE
+docker compose up -d
+
+# STEP 16: CHECK SERVICES
+docker compose ps
+
+
+
+
+# STEP 17: RETURN TO PROJECT FOLDER
+cd ~/Desktop/compose-lab
+
+# STEP 18: EDIT COMPOSE FILE
+nano docker-compose.yml
+
+# Final content for Task 4:
+# services:
+#   web:
+#     image: nginx:latest
+#     ports:
+#       - "8081:80"
+#     networks:
+#       - app-net
+#     depends_on:
+#       - db
+#   db:
+#     image: postgres:15
+#     environment:
+#       POSTGRES_USER: demo
+#       POSTGRES_PASSWORD: demo
+#       POSTGRES_DB: demo_db
+#     volumes:
+#       - db-data:/var/lib/postgresql/data
+#     networks:
+#       - app-net
+# networks:
+#   app-net:
+# volumes:
+#   db-data:
+
+# STEP 19: START SERVICES
+docker compose up -d
+
+# STEP 20: CHECK SERVICES
+docker compose ps
+
+# STEP 21: CONNECT TO POSTGRESQL
+docker compose exec db psql -U demo -d demo_db
+
+# STEP 22: CREATE TABLE AND INSERT DATA
+# Run inside PostgreSQL:
+# CREATE TABLE students(id INT, name VARCHAR(50));
+# INSERT INTO students VALUES(1,'Ram');
+# SELECT * FROM students;
+# \q
+
+# STEP 23: STOP AND REMOVE CONTAINERS
+docker compose down
+
+# STEP 24: START AGAIN
+docker compose up -d
+
+# STEP 25: VERIFY PERSISTENT DATA
+docker compose exec db psql -U demo -d demo_db
+
+# Run inside PostgreSQL:
+# SELECT * FROM students;
+# \q
+
+# STEP 26: CREATE FLASK APP
+nano app.py
+
+# Paste:
+# from flask import Flask
+#
+# app = Flask(__name__)
+#
+# @app.route("/")
+# def home():
+#     return "Hello from Flask + Docker!"
+#
+# if __name__ == "__main__":
+#     app.run(host="0.0.0.0", port=5000)
+
+# Save: Ctrl+O -> Enter -> Ctrl+X
+
+
+# STEP 27: CREATE DOCKERFILE
+nano Dockerfile
+
+# Paste:
+# FROM python:3.10-slim
+# WORKDIR /app
+# COPY app.py /app/
+# RUN pip install flask
+# CMD ["python", "app.py"]
+
+# Save: Ctrl+O -> Enter -> Ctrl+X
+
+
+# STEP 28: UPDATE COMPOSE FILE
+nano docker-compose.yml
+
+# Final content for Task 5:
+# services:
+#   web:
+#     build: .
+#     ports:
+#       - "5000:5000"
+#     depends_on:
+#       - db
+#   db:
+#     image: postgres:15
+#     environment:
+#       POSTGRES_USER: demo
+#       POSTGRES_PASSWORD: demo
+#       POSTGRES_DB: demo_db
+
+# STEP 29: BUILD AND START
+docker compose up --build -d
+
+# STEP 30: CHECK CONTAINERS
+docker compose ps
+
+# STEP 31: OPEN FLASK IN BROWSER
+# http://localhost:5000
+
+# Expected:
+# Hello from Flask + Docker!
+
+
+# STEP 32: MODIFY FLASK MESSAGE
+nano app.py
+
+# Change:
+# return "Hello from Flask + Docker!"
+# To:
+# return "Hello Docker Compose!"
+
+# Save: Ctrl+O -> Enter -> Ctrl+X
+
+
+# STEP 33: REBUILD APPLICATION
+docker compose up --build -d
+
+# STEP 34: VERIFY UPDATED MESSAGE
+# http://localhost:5000
+
+# Expected:
+# Hello Docker Compose!
+
+
+# ==========================================
+# FINAL USEFUL COMMANDS
+# ==========================================
+
+docker compose ps
+docker compose logs
+docker compose stop
+docker compose start
+docker compose down
+
+----------------------------------------------------------------------------------
+
+
+mkdir Redis
+cd Redis
+notepad Dockerfile
+
+FROM redis:latest
+CMD ["redis-server"]
+
+
+docker build -t redisnew .
+docker run --name myredisnew -d redisnew
+docker ps
+docker stop myredisnew
+docker login
+docker ps -a
+docker commit myredisnew yourusername/redis1
+docker images
+docker push yourusername/redis1
+docker rm myredisnew
+docker rmi yourusername/redis1
+docker ps -a
+docker logout
+docker pull yourusername/redis1
+docker run --name myredis -d yourusername/redis1
+docker exec -it myredis redis-cli
+
+
+SET name "Abcdef"
+GET name
+exit
+
+docker ps -a
+docker stop myredis
+docker rm myredis
+docker images
+docker rmi yourusername/redis1

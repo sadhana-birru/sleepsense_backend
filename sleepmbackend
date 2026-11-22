@@ -1,0 +1,103 @@
+Steps to memorize for exam
+1. Open Eclipse
+   
+   Open Eclipse IDE for Enterprise Java and Web Developers.
+2. Create Maven Project
+   
+   Click File → New → Maven Project.
+3. Select Archetype
+   
+   Search quickstart → Select maven-archetype-quickstart → Version 1.4 → Click Next.
+4. Enter Project Details
+   
+   - Group Id: SE
+   - Artifact Id: MavenJava
+   
+   Click Finish.
+5. Open Java File
+   
+   MavenJava → src/main/java → SE.MavenJava → App.java
+6. Execute Maven Commands
+   
+   Right-click project → Run As → Maven Build
+   
+   In Goals, enter:
+   
+   bash     clean install test     
+   
+   Click Apply → Run.
+   
+   You can also run Maven Clean, Maven Install, and Maven Test individually if required.
+7. Run Java Application
+   
+   Right-click App.java → Run As → Java Application.
+8. Check Console Output
+   
+   text     Hello World!     
+   
+   Maven build should show BUILD SUCCESS.
+
+
+
+----------------------------------------------------------------------------
+
+
+
+
+Steps to memorize for exam
+1. Create Maven Web Project
+   
+   File → New → Maven Project
+2. Select Webapp Archetype
+   
+   Search webapp → Select maven-archetype-webapp → Version 1.4 → Click Next.
+3. Enter Project Details
+   
+   - Group Id: SE
+   - Artifact Id: MavenWeb
+   
+   Click Finish.
+4. Open JSP File
+   
+   MavenWeb → src → main → webapp → index.jsp
+   
+   This is the main JSP page.
+5. Add Servlet Dependency
+   
+   Open pom.xml → Search Servlet API in MVN Repository → Copy dependency → Paste inside <dependencies> → Save.
+6. Add Tomcat Server
+   
+   Window → Show View → Servers → Click create new server → Select Apache Tomcat v9.0 → Choose Tomcat installation folder → Finish.
+7. Configure Tomcat
+   
+   Double-click Tomcat in Servers tab → Select Use Tomcat Installation → Set HTTP port to 8085 → Save.
+8. Build Maven Project
+   
+   Right-click project → Run As → Maven Build
+   
+   Goals:
+   
+   bash     clean install test     
+   
+   Click Apply → Run.
+   
+   Check BUILD SUCCESS.
+9. Deploy on Tomcat
+   
+   Right-click index.jsp → Run As → Run on Server → Select Tomcat → Click Finish.
+10. Check Browser Output
+    
+    Open:
+    
+    text     http://localhost:8085/MavenWeb/     
+    
+    The Hello World page should appear.
+Quick memory flow
+New Maven → Webapp 1.4 → Project IDs → index.jsp → Servlet Dependency → Tomcat Setup → Maven Build → Run on Server → Browser
+
+Remember:
+- Group Id: SE
+- Artifact Id: MavenWeb
+- Tomcat HTTP port: 8085
+- Browser URL: localhost:8085/MavenWeb/
+Note: For Tomcat 9, use javax.servlet-api. Tomcat 10 and later use jakarta.servlet-api.
